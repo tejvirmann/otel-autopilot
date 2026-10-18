@@ -1,0 +1,31 @@
+{
+  "uid": "otel-request-rate",
+  "name": "OTel / Request rate (req/s)",
+  "kind": 1,
+  "model": {
+    "type": "timeseries",
+    "title": "Request rate (req/s)",
+    "description": "RED: Rate. Server spans per route.",
+    "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+    },
+    "fieldConfig": {
+      "defaults": {
+        "unit": "reqps"
+      },
+      "overrides": []
+    },
+    "targets": [
+      {
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "expr": "sum by (http_route) (rate(traces_span_metrics_calls_total{service_name=~\"$service\",span_kind=\"SPAN_KIND_SERVER\"}[1m]))",
+        "legendFormat": "{{http_route}}",
+        "refId": "A"
+      }
+    ]
+  }
+}

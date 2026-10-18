@@ -1,0 +1,22 @@
+receivers:
+  otlp:
+    protocols:
+      grpc: {endpoint: 0.0.0.0:4317}
+      http: {endpoint: 0.0.0.0:4318}
+connectors:
+  spanmetrics:
+    namespace: traces.span.metrics
+    metrics_flush_interval: 5s
+    histogram:
+      explicit: {buckets: [10ms, 25ms, 50ms, 100ms, 250ms, 500ms, 1s, 2.5s, 5s]}
+    dimensions:
+      - name: http.route
+      - name: http.method
+      - name: db.system
+exporters:
+  otlp/tempo: {endpoint: tempo:4317, tls: {insecure: true}}
+  prometheus: {endpoint: 0.0.0.0:8889}
+service:
+  pipelines:
+    traces:  {receivers: [otlp], exporters: [otlp/tempo, spanmetrics]}
+    metrics: {receivers: [otlp, spanmetrics], exporters: [prometheus]}

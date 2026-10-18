@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "otel-autopilot": {"command": "uv", "args": ["run", "autopilot-mcp"]},
+    "grafana": {
+      "command": "uvx", "args": ["mcp-grafana"],
+      "env": {"GRAFANA_URL": "http://localhost:3000", "GRAFANA_USERNAME": "admin", "GRAFANA_PASSWORD": "admin"}
+    }
+  }
+}

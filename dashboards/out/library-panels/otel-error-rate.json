@@ -1,0 +1,31 @@
+{
+  "uid": "otel-error-rate",
+  "name": "OTel / Error rate (%)",
+  "kind": 1,
+  "model": {
+    "type": "timeseries",
+    "title": "Error rate (%)",
+    "description": "RED: Errors. Failed spans vs total requests.",
+    "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+    },
+    "fieldConfig": {
+      "defaults": {
+        "unit": "percent"
+      },
+      "overrides": []
+    },
+    "targets": [
+      {
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "expr": "100 * sum(rate(traces_span_metrics_calls_total{service_name=~\"$service\",status_code=\"STATUS_CODE_ERROR\",span_kind!=\"SPAN_KIND_INTERNAL\"}[1m])) / clamp_min(sum(rate(traces_span_metrics_calls_total{service_name=~\"$service\",span_kind=\"SPAN_KIND_SERVER\"}[1m])), 0.001)",
+        "legendFormat": "errors",
+        "refId": "A"
+      }
+    ]
+  }
+}

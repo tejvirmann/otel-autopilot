@@ -1,0 +1,14 @@
+[project]
+name = "autopilot"
+version = "0.1.0"
+description = "Verifier, dashboard generator and MCP server for AI-assisted OpenTelemetry instrumentation."
+requires-python = ">=3.10"
+dependencies = ["mcp>=1.2,<2", "opentelemetry-proto>=1.27", "protobuf", "httpx>=0.27"]
+[project.scripts]
+autopilot = "autopilot.cli:main"
+autopilot-mcp = "autopilot.mcp_server:main"
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+[tool.hatch.build.targets.wheel]
+packages = ["src/autopilot"]

@@ -1,0 +1,31 @@
+{
+  "uid": "otel-latency-p50",
+  "name": "OTel / Latency p50 by route",
+  "kind": 1,
+  "model": {
+    "type": "timeseries",
+    "title": "Latency p50 by route",
+    "description": "",
+    "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+    },
+    "fieldConfig": {
+      "defaults": {
+        "unit": "ms"
+      },
+      "overrides": []
+    },
+    "targets": [
+      {
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "expr": "histogram_quantile(0.50, sum by (le, http_route) (rate(traces_span_metrics_duration_milliseconds_bucket{service_name=~\"$service\",span_kind=\"SPAN_KIND_SERVER\"}[1m])))",
+        "legendFormat": "{{http_route}}",
+        "refId": "A"
+      }
+    ]
+  }
+}

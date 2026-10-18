@@ -1,0 +1,31 @@
+{
+  "uid": "otel-db-calls",
+  "name": "OTel / DB spans per request",
+  "kind": 1,
+  "model": {
+    "type": "timeseries",
+    "title": "DB spans per request",
+    "description": "High values signal N+1 queries.",
+    "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+    },
+    "fieldConfig": {
+      "defaults": {
+        "unit": "short"
+      },
+      "overrides": []
+    },
+    "targets": [
+      {
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "expr": "sum(rate(traces_span_metrics_calls_total{service_name=~\"$service\",db_system!=\"\"}[1m])) / clamp_min(sum(rate(traces_span_metrics_calls_total{service_name=~\"$service\",span_kind=\"SPAN_KIND_SERVER\"}[1m])), 0.001)",
+        "legendFormat": "db calls / request",
+        "refId": "A"
+      }
+    ]
+  }
+}

@@ -1,0 +1,186 @@
+{
+  "uid": "otel-standard-red",
+  "title": "Service Overview (standard)",
+  "tags": [
+    "otel-autopilot",
+    "standard"
+  ],
+  "schemaVersion": 39,
+  "version": 1,
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  },
+  "refresh": "10s",
+  "editable": true,
+  "templating": {
+    "list": [
+      {
+        "name": "service",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "label": "Service",
+        "query": {
+          "query": "label_values(traces_span_metrics_calls_total, service_name)",
+          "refId": "q"
+        },
+        "refresh": 2,
+        "includeAll": false,
+        "current": {}
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Availability (SLO 99.5%)",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 99
+              },
+              {
+                "color": "green",
+                "value": 99.5
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "100 - (100 * sum(rate(traces_span_metrics_calls_total{service_name=~\"$service\",status_code=\"STATUS_CODE_ERROR\",span_kind!=\"SPAN_KIND_INTERNAL\"}[5m])) / clamp_min(sum(rate(traces_span_metrics_calls_total{service_name=~\"$service\",span_kind=\"SPAN_KIND_SERVER\"}[5m])), 0.001))",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "id": 8,
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 4
+      }
+    },
+    {
+      "libraryPanel": {
+        "uid": "otel-request-rate",
+        "name": "OTel / Request rate (req/s)"
+      },
+      "title": "Request rate (req/s)",
+      "id": 1,
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "libraryPanel": {
+        "uid": "otel-error-rate",
+        "name": "OTel / Error rate (%)"
+      },
+      "title": "Error rate (%)",
+      "id": 2,
+      "gridPos": {
+        "x": 12,
+        "y": 4,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "libraryPanel": {
+        "uid": "otel-latency-p95",
+        "name": "OTel / Latency p95 by route"
+      },
+      "title": "Latency p95 by route",
+      "id": 3,
+      "gridPos": {
+        "x": 0,
+        "y": 12,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "libraryPanel": {
+        "uid": "otel-latency-p50",
+        "name": "OTel / Latency p50 by route"
+      },
+      "title": "Latency p50 by route",
+      "id": 4,
+      "gridPos": {
+        "x": 12,
+        "y": 12,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "libraryPanel": {
+        "uid": "otel-db-calls",
+        "name": "OTel / DB spans per request"
+      },
+      "title": "DB spans per request",
+      "id": 5,
+      "gridPos": {
+        "x": 0,
+        "y": 20,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "libraryPanel": {
+        "uid": "otel-errors-by-op",
+        "name": "OTel / Errors by operation"
+      },
+      "title": "Errors by operation",
+      "id": 6,
+      "gridPos": {
+        "x": 12,
+        "y": 20,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "libraryPanel": {
+        "uid": "otel-genai-tokens",
+        "name": "OTel / GenAI tokens/s"
+      },
+      "title": "GenAI tokens/s",
+      "id": 7,
+      "gridPos": {
+        "x": 0,
+        "y": 28,
+        "w": 12,
+        "h": 8
+      }
+    }
+  ]
+}

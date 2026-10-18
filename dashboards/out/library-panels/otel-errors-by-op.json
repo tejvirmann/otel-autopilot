@@ -1,0 +1,31 @@
+{
+  "uid": "otel-errors-by-op",
+  "name": "OTel / Errors by operation",
+  "kind": 1,
+  "model": {
+    "type": "timeseries",
+    "title": "Errors by operation",
+    "description": "",
+    "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+    },
+    "fieldConfig": {
+      "defaults": {
+        "unit": "ops"
+      },
+      "overrides": []
+    },
+    "targets": [
+      {
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "expr": "sum by (span_name) (rate(traces_span_metrics_calls_total{service_name=~\"$service\",status_code=\"STATUS_CODE_ERROR\"}[1m]))",
+        "legendFormat": "{{span_name}}",
+        "refId": "A"
+      }
+    ]
+  }
+}

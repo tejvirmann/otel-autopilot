@@ -1,0 +1,18 @@
+[project]
+name = "otel-autopilot-workspace"
+version = "0.1.0"
+requires-python = ">=3.10"
+dependencies = ["otel-kit", "autopilot"]
+
+[dependency-groups]
+sample = ["fastapi>=0.110", "uvicorn>=0.29", "httpx>=0.27"]
+
+[tool.uv]
+default-groups = ["sample"]
+
+[tool.uv.workspace]
+members = ["otel-kit", "autopilot"]
+
+[tool.uv.sources]
+otel-kit = { workspace = true }
+autopilot = { workspace = true }

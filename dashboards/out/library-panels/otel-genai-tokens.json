@@ -1,0 +1,31 @@
+{
+  "uid": "otel-genai-tokens",
+  "name": "OTel / GenAI tokens/s",
+  "kind": 1,
+  "model": {
+    "type": "timeseries",
+    "title": "GenAI tokens/s",
+    "description": "OTel GenAI semantic conventions.",
+    "datasource": {
+      "type": "prometheus",
+      "uid": "prometheus"
+    },
+    "fieldConfig": {
+      "defaults": {
+        "unit": "short"
+      },
+      "overrides": []
+    },
+    "targets": [
+      {
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "expr": "sum by (gen_ai_token_type, gen_ai_request_model) (rate(gen_ai_client_token_usage_sum{exported_job=~\"$service\"}[1m]))",
+        "legendFormat": "{{gen_ai_request_model}} {{gen_ai_token_type}}",
+        "refId": "A"
+      }
+    ]
+  }
+}

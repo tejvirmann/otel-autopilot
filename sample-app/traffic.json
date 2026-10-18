@@ -1,0 +1,14 @@
+{
+  "service_port": 8000,
+  "requests": [
+    {"method": "GET",  "path": "/health", "repeat": 3},
+    {"method": "GET",  "path": "/products", "repeat": 5},
+    {"method": "GET",  "path": "/orders/101", "repeat": 3},
+    {"method": "GET",  "path": "/orders/202", "repeat": 3},
+    {"method": "GET",  "path": "/orders/303", "repeat": 3},
+    {"method": "GET",  "path": "/users/lookup?email=alice@example.com", "repeat": 2},
+    {"method": "POST", "path": "/checkout", "json": {"amount": 50}, "repeat": 3},
+    {"method": "POST", "path": "/checkout", "json": {"amount": 5000}, "repeat": 2, "expect_error_span": true},
+    {"method": "GET",  "path": "/ask?q=what+is+opentelemetry", "repeat": 3}
+  ]
+}
