@@ -15,6 +15,17 @@ Instrumentation score: 0/100            Instrumentation score: 100/100
                                           PASS  LLM calls carry GenAI attributes + token usage
 ```
 
+![Demo: from 0/100 to 100/100](docs/media/demo.gif)
+
+*The full demo in 75 seconds (the real run takes about 4 minutes; slow parts are sped up).*
+
+<!--
+  VIDEO: to add the full-quality video, edit this file on github.com, drag docs/media/demo.mp4
+  (made by demo/make_media.sh, not committed) into the editor, and paste the link GitHub gives you
+  on its own line right below this comment. GitHub then shows a playable video here.
+-->
+
+
 ![Standard service dashboard](docs/img/dashboard-standard.png)
 
 *The standard dashboard (shared library panels, `$service` variable). "DB spans per request" shows an N+1 query that the traces exposed, and the drop after the fix.*
@@ -219,6 +230,13 @@ Dashboards show the last 15 minutes and refresh every 10s, so run a demo fresh (
 - **Reset between runs:** `demo/demo.sh reset` puts `shop-api/` back to messy and kills leftover servers on 8000/8001 (only our own uvicorn processes).
 - **Clean graphs for a recorded take:** `demo/demo.sh reset --full` also wipes the backend so Grafana starts empty.
 - **Done for the day:** `demo/demo.sh down`.
+
+## Recording the demo yourself
+
+1. Rehearse once, then `demo/demo.sh reset --full`.
+2. Record your screen (QuickTime: File, New Screen Recording) while running `caffeinate -i demo/demo.sh agent`. Use `DEMO_NO_OPEN=1` or a clean browser profile, because your real browser's tab strip would end up in the video.
+3. `demo/make_media.sh ~/Desktop/demo.mov` writes `docs/media/demo.mp4` and `docs/media/demo.gif`. Edit the `SEGMENTS` list at the top of that script to re-time a new recording: slow parts get sped up, and the slice where a browser window shows is replaced by a dashboard screenshot.
+4. The mp4 is not committed (`.gitignore`). To show it inline, drag it into the README editor on github.com and paste the link GitHub gives you under the `VIDEO` comment near the top of this file. The GIF is committed and plays on its own.
 
 ## Troubleshooting
 
