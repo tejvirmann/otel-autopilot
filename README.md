@@ -2,6 +2,10 @@
 
 **Point an AI agent at a messy service. Get verified OpenTelemetry instrumentation and standard dashboards, with a score that proves it works.**
 
+## Demo Video
+
+https://github.com/user-attachments/assets/c6b0e43f-c13c-4d87-95bd-e40f79bae92e
+
 Vendor-neutral (plain OTLP, Grafana stack), reproducible, and measurable: the AI's work is checked by running the service, not by trusting the diff.
 
 ```text
