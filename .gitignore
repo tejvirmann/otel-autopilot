@@ -6,3 +6,4 @@ __pycache__/
 shop.db
 demo/eval-workspace/
 .DS_Store
+docs/media/*.mp4
