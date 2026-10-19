@@ -8,30 +8,7 @@ https://github.com/user-attachments/assets/c6b0e43f-c13c-4d87-95bd-e40f79bae92e
 
 Vendor-neutral (plain OTLP, Grafana stack), reproducible, and measurable: the AI's work is checked by running the service, not by trusting the diff.
 
-```text
-$ uv run autopilot verify <service dir>
-
-BEFORE: sample-app/messy                AFTER: sample-app/reference
-Instrumentation score: 0/100            Instrumentation score: 100/100
-  FAIL  Any spans reach the collector     PASS  Server span with http.route for every endpoint
-        0 spans received                  PASS  Failures recorded (ERROR + exception)
-                                          PASS  No PII or secrets in span attributes
-                                          PASS  LLM calls carry GenAI attributes + token usage
-```
-
-![Standard service dashboard](docs/img/dashboard-standard.png)
-
-*The standard dashboard (shared library panels, `$service` variable). "DB spans per request" shows an N+1 query that the traces exposed, and the drop after the fix.*
-
-## Why this and not a vendor tool
-- **Vendor-neutral:** emits OTLP, works with any backend.
-- **Verified:** a verifier runs the app with traffic and scores what actually arrives. It catches real problems (we found sqlite `connection.execute()` is silently untraced).
-- **Standard metrics:** 7 shared Grafana library panels, fixed once and updated everywhere, plus one-off dashboards generated from what a service emits.
-- **Measurable:** an eval harness runs the agent N times to give a first-pass success rate.
-
----
-
-## Quick start (fresh copy)
+## How to run the demo
 
 Needs Python 3.10+, [uv](https://docs.astral.sh/uv/), and Docker running (Docker Desktop, or `colima start`). Agent mode also needs the `claude` CLI ([how to hook it up](#hook-up-your-agent)).
 Free ports: 3000, 3200, 4317, 4318, 8000, 8001, 8889, 9090.
@@ -63,6 +40,35 @@ demo/demo.sh down                     # stop the Grafana/Tempo/Prometheus contai
 ```
 
 The demo opens Grafana in your browser (no login). No agent set up? Use `replay`. Everything else is below.
+
+---
+
+## Before and After
+
+```text
+$ uv run autopilot verify shop-api 
+
+BEFORE: sample-app/messy                AFTER: sample-app/reference
+Instrumentation score: 0/100            Instrumentation score: 100/100
+  FAIL  Any spans reach the collector     PASS  Server span with http.route for every endpoint
+        0 spans received                  PASS  Failures recorded (ERROR + exception)
+                                          PASS  No PII or secrets in span attributes
+                                          PASS  LLM calls carry GenAI attributes + token usage
+```
+
+## Generated Standard Metrics Dashboard
+
+![Standard service dashboard](docs/img/dashboard-standard.png)
+
+*The standard dashboard (shared library panels, `$service` variable). "DB spans per request" shows an N+1 query that the traces exposed, and the drop after the fix.*
+
+## Why this and not a vendor tool
+- **Vendor-neutral:** emits OTLP, works with any backend.
+- **Verified:** a verifier runs the app with traffic and scores what actually arrives. It catches real problems (we found sqlite `connection.execute()` is silently untraced).
+- **Standard metrics:** 7 shared Grafana library panels, fixed once and updated everywhere, plus one-off dashboards generated from what a service emits.
+- **Measurable:** an eval harness runs the agent N times to give a first-pass success rate.
+
+---
 
 ## The idea in one minute
 
