@@ -19,6 +19,9 @@ Goal: a reviewable PR whose telemetry is *verified*, not assumed. Never auto-mer
 4. **Verify** again. Fix every FAIL using the report's fix hints. Repeat until 100 or until a hint requires a judgment call (then stop and ask a human).
 5. **Write `instrumentation-plan.md`**: what changed and why, before/after score, anything intentionally skipped, and risks (e.g. new dependency, attribute cardinality).
 
+## Environment
+`otelkit` and the verifier are installed in the repo's uv environment, not the system Python. If the task prompt gives a project path, run Python and the CLI as `uv run --project <path> ...`. Don't search the filesystem for them.
+
 ## Known gotchas
 - `sqlite3` instrumentation traces **cursor** calls only. `connection.execute(...)` shortcuts produce no DB spans: use `connection.cursor().execute(...)`. (Other drivers differ; check the verifier.)
 - Raw string-built SQL puts user data (emails) into `db.statement`. otel-kit scrubs it on export, but flag the SQL-injection risk to the human in the plan; do not silently rewrite queries.

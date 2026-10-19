@@ -30,7 +30,7 @@ flowchart TB
     end
     subgraph pkg [autopilot package]
         mcp["MCP server<br/>verify_instrumentation<br/>query_prometheus<br/>search_traces<br/>generate_dashboards"]
-        ver["Verifier<br/>OTLP receiver + 9 checks + score"]
+        ver["Verifier<br/>OTLP receiver + 10 checks + score"]
         dash["dashgen<br/>standard (library panels)<br/>one-off (discovered)"]
     end
     subgraph app [Service under test]

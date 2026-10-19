@@ -4,6 +4,8 @@ import argparse
 import json
 import sys
 
+import httpx
+
 from .report import render
 from .runner import verify
 
@@ -27,6 +29,13 @@ def main(argv=None):
     d.add_argument("--grafana", default="http://localhost:3000")
     d.add_argument("--auth", default="admin:admin")
     a = p.parse_args(argv)
+    try:
+        _run(a)
+    except httpx.ConnectError as e:
+        sys.exit(f"Cannot connect ({e}). Is the backend running? Start it with: docker compose up -d")
+
+
+def _run(a):
     if a.cmd == "verify":
         rep = verify(a.app_dir, a.traffic)
         print(json.dumps(rep, indent=2) if a.json else render(rep, sys.stdout.isatty()))
