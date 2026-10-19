@@ -3,7 +3,7 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
-W=demo/workspace
+APP=shop-api   # the 'customer codebase': messy before the demo, instrumented after
 TOTAL=8
 START=$(date +%s)
 
@@ -16,9 +16,10 @@ ${B}otel-autopilot demo${E}
 
   demo/demo.sh replay        Run the whole demo with a pre-written solution (no AI, deterministic)
   demo/demo.sh agent         Run the whole demo with Claude Code doing the instrumenting (live, ~2-3 min, small LLM cost)
-  demo/demo.sh setup         Only the preflight checks (uv sync, Docker, ports)
+  demo/demo.sh prompt        Bring your own agent: prepare shop-api/ and print the prompt to paste
+  demo/demo.sh setup         Preflight checks (uv sync, Docker, ports) and create the messy shop-api/
   demo/demo.sh open          Open Grafana dashboards in your browser
-  demo/demo.sh reset         Clean up a run: kill leftover servers, delete demo/workspace
+  demo/demo.sh reset         Put shop-api/ back to messy and kill leftover servers
   demo/demo.sh reset --full  Also stop and wipe the Grafana/Tempo/Prometheus stack (clean graphs)
   demo/demo.sh down          Stop the backend stack
 
@@ -33,6 +34,7 @@ die()  { echo "${R}${B}ERROR:${E} $*" >&2; exit 1; }
 note() { echo "  ${D}$*${E}"; }
 cmd()  { echo "  ${D}\$ $*${E}"; }
 run()  { cmd "$*"; "$@"; }
+runi() { cmd "$*"; "$@" 2>&1 | indent; }   # like run, output indented under the command
 indent() { sed 's/^/    /'; }
 STEP=0
 step() {  # step "title" "what this shows"
@@ -49,6 +51,10 @@ wait_for() {  # wait_for <name> <url>
 }
 have_docker() { docker info >/dev/null 2>&1; }
 open_url() { [ -n "${DEMO_NO_OPEN:-}" ] && return 0; if command -v open >/dev/null; then open "$1"; elif command -v xdg-open >/dev/null; then xdg-open "$1" >/dev/null 2>&1; fi; return 0; }
+
+restore_messy() {  # put the messy original back in shop-api/ (the template in sample-app/ is never touched)
+  rm -rf "$APP" && cp -R sample-app/messy "$APP" && cp sample-app/traffic.json "$APP/traffic.json" && rm -f "$APP/shop.db"
+}
 
 kill_stale() {
   for p in 8000 8001; do
@@ -71,7 +77,7 @@ preflight() {
 # ---------- commands ----------
 cmd_reset() {
   kill_stale
-  rm -rf "$W" demo/eval-workspace; note "removed demo/workspace"
+  rm -rf demo/eval-workspace; restore_messy; note "$APP/ restored to the messy original"
   if [ "${1:-}" = "--full" ]; then have_docker && docker compose down -v 2>&1 | tail -1 || true; note "backend stack stopped and wiped"; fi
   echo "${G}reset done${E}"
 }
@@ -79,6 +85,35 @@ cmd_reset() {
 cmd_open() {
   open_url http://localhost:3000/d/otel-standard-red/service-overview-standard?var-service=shop-api
   open_url http://localhost:3000/d/otel-oneoff-shop-api/shop-api-generated
+}
+
+prepare_agent() {  # give the agent its skills and the MCP server config, inside the service folder
+  mkdir -p "$APP/.claude" && cp -R skills "$APP/.claude/skills"
+  cat > "$APP/.mcp.json" <<JSON
+{"mcpServers": {"otel-autopilot": {"command": "uv", "args": ["run", "--project", "$ROOT", "autopilot-mcp"]}}}
+JSON
+}
+
+agent_prompt() {
+  echo "Use the otel-instrument skill to instrument this service. The otelkit library and the verifier live in the uv project at $ROOT: run python and the CLI via 'uv run --project $ROOT ...'. Verify with the verify_instrumentation MCP tool (app_dir = this directory), or fall back to: uv run --project $ROOT autopilot verify . . Write instrumentation-plan.md. Do not fix N+1 queries."
+}
+
+cmd_prompt() {  # bring your own agent: set up shop-api/ and print what to paste
+  [ -d "$APP" ] || restore_messy
+  prepare_agent
+  cat <<TXT
+${B}Bring your own agent${E}
+  shop-api/ is ready: skills copied to $APP/.claude/skills, MCP config in $APP/.mcp.json.
+
+  1. Open the folder $ROOT/$APP in your agent (Claude Code, Cursor, Codex, Copilot, ...).
+  2. If it supports MCP, add this server (stdio):  uv run --project $ROOT autopilot-mcp
+     If it reads skills from another place, point it at $APP/.claude/skills/otel-instrument/SKILL.md.
+  3. Paste this prompt:
+
+${C}$(agent_prompt)${E}
+
+  4. Check its work (same command as before):  uv run autopilot verify $APP
+TXT
 }
 
 cmd_run() {
@@ -95,33 +130,41 @@ cmd_run() {
   step "Preflight" "Install dependencies and check Docker and ports."
   preflight "$MODE"; pause
 
-  step "Reset" "Fresh copy of the messy service in $W/ (the original in sample-app/ is never touched)."
+  step "Reset" "Restore shop-api/ to the messy original (template: sample-app/messy, never modified)."
   kill_stale
-  rm -rf "$W" && mkdir -p "$W" && cp -R sample-app/messy "$W/shop-api" && cp sample-app/traffic.json "$W/" && rm -f "$W/shop-api/shop.db"
-  note "service: $W/shop-api   (no telemetry, swallowed errors, N+1 queries, string-built SQL)"; pause
+  restore_messy
+  note "service: $APP   (no telemetry, swallowed errors, N+1 queries, string-built SQL)"; pause
 
   step "BEFORE: how observable is it?" "The verifier starts the service, sends traffic, and scores the telemetry it emits (0-100)."
-  run uv run autopilot verify "$W/shop-api" 2>&1 | indent || true; pause
+  runi uv run autopilot verify "$APP" || true; pause
 
   if [ "$MODE" = agent ]; then
-    step "AI instruments the service" "Claude Code runs headless inside $W/shop-api. Watch its tool calls below."
-    mkdir -p "$W/shop-api/.claude" && cp -R skills "$W/shop-api/.claude/skills"
-    cat > "$W/shop-api/.mcp.json" <<JSON
-{"mcpServers": {"otel-autopilot": {"command": "uv", "args": ["run", "--project", "$ROOT", "autopilot-mcp"]}}}
-JSON
-    note "skills copied to $W/shop-api/.claude/skills (Claude Code auto-discovers them)"
-    note "MCP server configured in $W/shop-api/.mcp.json"
-    PROMPT="Use the otel-instrument skill to instrument this service. The otelkit library and the verifier live in the uv project at $ROOT: run python and the CLI via 'uv run --project $ROOT ...'. Verify with the verify_instrumentation MCP tool (app_dir = this directory), or fall back to: uv run --project $ROOT autopilot verify . . Write instrumentation-plan.md. Do not fix N+1 queries."
-    note "prompt: ${PROMPT:0:120}..."
+    step "AI instruments the service" "Claude Code runs headless inside $APP. Watch its tool calls below."
+    prepare_agent
+    PROMPT="$(agent_prompt)"
+    ALLOWED=(mcp__otel-autopilot__verify_instrumentation "Bash(uv run:*)" "Bash(ls:*)" "Bash(cat:*)" Read Edit Write Skill)
     echo
-    ( cd "$W/shop-api" && claude -p "$PROMPT" --permission-mode acceptEdits --setting-sources project \
+    echo "  ${B}What the agent receives${E}"
+    echo "  ${B}1. The prompt${E} (verbatim; this is the only thing we type to it):"
+    echo "$PROMPT" | fold -s -w 96 | sed 's/^/       /'
+    echo "  ${B}2. Skills${E} (instructions it can load; full text in skills/<name>/SKILL.md):"
+    for f in skills/*/SKILL.md; do
+      printf '       - %s: %s\n' "$(basename "$(dirname "$f")")" "$(grep -m1 '^description:' "$f" | sed 's/^description: //' | cut -c1-110)..."
+    done
+    echo "       copied to $APP/.claude/skills (Claude Code auto-discovers them)"
+    echo "  ${B}3. MCP server${E}: otel-autopilot, tool verify_instrumentation (config: $APP/.mcp.json)"
+    echo "  ${B}4. Allowed tools${E}: ${ALLOWED[*]}"
+    echo "  ${D}Its own settings are ignored (--setting-sources project, --strict-mcp-config), so every run starts from the same setup.${E}"
+    echo
+    echo "  ${B}Live log of what the agent does${E} (skill / read / edit / run / mcp / verify / claude):"
+    ( cd "$APP" && claude -p "$PROMPT" --permission-mode acceptEdits --setting-sources project \
         --strict-mcp-config --mcp-config .mcp.json \
-        --allowedTools "mcp__otel-autopilot__verify_instrumentation" "Bash(uv run:*)" "Bash(ls:*)" "Bash(cat:*)" "Read" "Edit" "Write" "Skill" \
+        --allowedTools "${ALLOWED[@]}" \
         --output-format stream-json --verbose < /dev/null 2>/dev/null | python3 "$ROOT/demo/stream.py" )
   else
     step "'AI' instruments the service (replay)" "Copies a pre-written solution over app.py. Nothing is figured out here: this is a recording of what the agent produces."
-    cp sample-app/reference/app.py "$W/shop-api/app.py"
-    cat > "$W/shop-api/instrumentation-plan.md" <<'PLAN'
+    cp sample-app/reference/app.py "$APP/app.py"
+    cat > "$APP/instrumentation-plan.md" <<'PLAN'
 # Instrumentation plan (replayed reference solution)
 - otelkit.init() at startup: resource attrs, OTLP export, PII scrubbing, FastAPI/httpx/sqlite3 auto-instrumentation.
 - business_span around checkout; payment failure now recorded as ERROR + exception (was swallowed).
@@ -131,28 +174,40 @@ JSON
 PLAN
   fi
   echo; echo "  ${B}What changed in app.py:${E}"
-  diff -u sample-app/messy/app.py "$W/shop-api/app.py" | grep -E '^[+-]' | grep -vE '^(\+\+\+|---)' | head -40 | indent || true
-  note "full explanation: $W/shop-api/instrumentation-plan.md"; pause
+  diff -u sample-app/messy/app.py "$APP/app.py" | grep -E '^[+-]' | grep -vE '^(\+\+\+|---)' | head -40 | indent || true
+  note "full explanation: $APP/instrumentation-plan.md"; pause
 
   step "AFTER: verify again" "Same service, same traffic, same verifier. Did the instrumentation actually work?"
-  run uv run autopilot verify "$W/shop-api" 2>&1 | indent; pause
+  runi uv run autopilot verify "$APP"; pause
 
   step "Start the real backend and send traffic" "Collector, Tempo (traces), Prometheus (metrics), Grafana (dashboards) in Docker; then 30s of traffic."
-  run docker compose up -d 2>&1 | tail -1 | indent || die "docker compose up failed (are ports 3000, 3200, 4317, 4318, 8889, 9090 free?)"
+  cmd "docker compose up -d"
+  if ! OUT=$(docker compose up -d 2>&1); then
+    echo "$OUT" | tail -6 | cut -c1-200 | indent
+    die "docker compose up failed. Common causes: a port is taken (3000, 3200, 4317, 4318, 8889, 9090), or the project folder is outside what Docker can mount (Colima shares only your home folder)."
+  fi
+  echo "$OUT" | tail -1 | indent
   wait_for "OTel Collector" http://127.0.0.1:4318/
   wait_for "Prometheus" http://127.0.0.1:9090/-/ready
   wait_for "Tempo" http://127.0.0.1:3200/ready
   wait_for "Grafana" http://127.0.0.1:3000/api/health
-  run uv run autopilot load "$W/shop-api" --seconds 30; pause
+  run uv run autopilot load "$APP" --seconds 30; pause
 
   step "Generate dashboards as code and push them to Grafana" "7 shared library panels + a \$service-templated dashboard, plus one tailored to what this service emits."
-  run uv run autopilot dash standard --out dashboards/out | indent
-  run uv run autopilot dash oneoff --service shop-api --out dashboards/out-oneoff | indent
-  run uv run autopilot dash push --out dashboards/out | indent
-  run uv run autopilot dash push --out dashboards/out-oneoff | indent
+  runi uv run autopilot dash standard --out dashboards/out
+  runi uv run autopilot dash oneoff --service shop-api --out dashboards/out-oneoff
+  runi uv run autopilot dash push --out dashboards/out
+  runi uv run autopilot dash push --out dashboards/out-oneoff
   echo
+  echo "  ${B}Panels generated${E} (as code, in dashboards/out/library-panels/, now loaded into Grafana):"
+  python3 - <<'PANELS' | sed 's/^/    /'
+import json, glob
+for f in sorted(glob.glob("dashboards/out/library-panels/*.json")):
+    print(f"- {json.load(open(f))['name']:<44} {f}")
+PANELS
   echo "  ${B}LOOK AT GRAFANA NOW${E} (no login needed):"
-  echo "    standard dashboard : ${C}http://localhost:3000/d/otel-standard-red/service-overview-standard?var-service=shop-api${E}"
+  echo "    all generated      : ${C}http://localhost:3000/dashboards?tag=otel-autopilot${E}"
+  echo "    standard dashboard : ${C}http://localhost:3000/d/otel-standard-red/service-overview-standard?var-service=shop-api${E}   (built from the 7 shared panels)"
   echo "    one-off dashboard  : ${C}http://localhost:3000/d/otel-oneoff-shop-api/shop-api-generated${E}"
   echo "    traces (Tempo)     : http://localhost:3000/explore  -> choose Tempo -> Search -> service.name = shop-api"
   [ -z "${DEMO_NO_OPEN:-}" ] && { note "opening the dashboards in your browser (set DEMO_NO_OPEN=1 to skip)"; cmd_open; }
@@ -160,12 +215,12 @@ PLAN
 
   step "Payoff: the traces exposed a bug. Fix it and compare." "Instrumenting revealed an N+1 query: ~15 database calls per /products request."
   note "database calls per request BEFORE the fix:"
-  uv run autopilot verify "$W/shop-api" 2>/dev/null | grep "DB spans" | indent || note "(could not measure DB spans)"
-  cp sample-app/reference-fixed/app.py "$W/shop-api/app.py"
+  uv run autopilot verify "$APP" 2>/dev/null | grep "DB spans" | indent || note "(could not measure DB spans)"
+  cp sample-app/reference-fixed/app.py "$APP/app.py"
   note "replaced the N+1 loop with one JOIN query (sample-app/reference-fixed/app.py), then:"
-  uv run autopilot verify "$W/shop-api" 2>/dev/null | grep "DB spans" | indent || note "(could not measure DB spans)"
+  uv run autopilot verify "$APP" 2>/dev/null | grep "DB spans" | indent || note "(could not measure DB spans)"
   note "sending 30s more traffic so the dashboard shows the change:"
-  uv run autopilot load "$W/shop-api" --seconds 30
+  uv run autopilot load "$APP" --seconds 30
 
   SECS=$(( $(date +%s) - START ))
   echo; echo "${G}${B}Demo complete${E} in ${SECS}s."
@@ -174,7 +229,7 @@ PLAN
   ${B}Where to look${E}
     Grafana dashboards  http://localhost:3000  (Dashboards -> Browse -> tag "otel-autopilot")
       - "DB spans per request" panel drops after the fix; "/products" p95 latency drops too
-    The AI's work       $W/shop-api/app.py and $W/shop-api/instrumentation-plan.md
+    The AI's work       $APP/app.py and $APP/instrumentation-plan.md
     Generated dashboards-as-code   dashboards/out/ and dashboards/out-oneoff/
 
   ${B}Next${E}
@@ -186,7 +241,9 @@ EOF
 
 case "${1:-help}" in
   replay|agent) cmd_run "$1" ;;
-  setup)  STEP=0; TOTAL=1; step "Preflight"; preflight "${2:-}"; echo "${G}ready${E}" ;;
+  setup)  STEP=0; TOTAL=1; step "Preflight"; preflight "${2:-}"; [ -d "$APP" ] || restore_messy
+          echo "${G}ready${E}  shop-api/ is the messy service. Try: uv run autopilot verify shop-api   (expect 0/100)" ;;
+  prompt) cmd_prompt ;;
   open)   cmd_open ;;
   reset)  cmd_reset "${2:-}" ;;
   down)   docker compose down ;;

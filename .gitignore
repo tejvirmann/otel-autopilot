@@ -1,6 +1,8 @@
+/shop-api/
 demo/workspace/
 .venv/
 __pycache__/
 *.db
 shop.db
 demo/eval-workspace/
+.DS_Store

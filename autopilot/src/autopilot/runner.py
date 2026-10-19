@@ -52,9 +52,19 @@ def _wait(url: str, timeout=20):
     raise RuntimeError(f"timeout waiting for {url}")
 
 
+def _traffic_path(app_dir: Path, traffic_file: str | None) -> Path:
+    """--traffic, else traffic.json inside the service dir, else in its parent."""
+    for c in ([Path(traffic_file)] if traffic_file else [app_dir / "traffic.json", app_dir.parent / "traffic.json"]):
+        if c.exists():
+            return c
+    raise SystemExit(f"No traffic.json found in {app_dir} or its parent. Create one or pass --traffic <file>.")
+
+
 def verify(app_dir: str, traffic_file: str | None = None, app_port: int = 8000, stub_port: int = 8001) -> dict:
     app_dir = Path(app_dir).resolve()
-    traffic = json.loads(Path(traffic_file or app_dir.parent / "traffic.json").read_text())
+    if not (app_dir / "app.py").exists():
+        raise SystemExit(f"No app.py in {app_dir}. Run from a service directory, or pass one: autopilot verify sample-app/messy")
+    traffic = json.loads(_traffic_path(app_dir, traffic_file).read_text())
     _ensure_free(app_port, stub_port)
     col = Collector().start()
     _log(f"collector listening on 127.0.0.1:{col.port} (receives the app's telemetry)")
@@ -103,7 +113,7 @@ def load(app_dir: str, seconds: int = 60, endpoint: str = "http://127.0.0.1:4318
     httpx.get(endpoint, timeout=3)  # fail fast (ConnectError) if the collector is not listening
     _ensure_free(app_port, stub_port)
     app_dir = Path(app_dir).resolve()
-    traffic = json.loads(Path(traffic_file or app_dir.parent / "traffic.json").read_text())
+    traffic = json.loads(_traffic_path(app_dir, traffic_file).read_text())
     env = {**os.environ, "OTEL_EXPORTER_OTLP_ENDPOINT": endpoint, "OTEL_METRIC_EXPORT_INTERVAL": "5000",
            "PAYMENTS_URL": f"http://127.0.0.1:{stub_port}"}
     procs = []

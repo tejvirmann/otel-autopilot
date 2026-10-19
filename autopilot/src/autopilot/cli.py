@@ -14,7 +14,7 @@ def main(argv=None):
     p = argparse.ArgumentParser(prog="autopilot")
     sub = p.add_subparsers(dest="cmd", required=True)
     v = sub.add_parser("verify", help="run the app + traffic against a collector and score the telemetry")
-    v.add_argument("app_dir")
+    v.add_argument("app_dir", nargs="?", default=".", help="service directory (default: current directory)")
     v.add_argument("--traffic")
     v.add_argument("--json", action="store_true")
     v.add_argument("--min-score", type=int, default=0, help="exit 1 below this score (CI gate)")
